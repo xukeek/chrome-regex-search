@@ -46,7 +46,8 @@ function returnSearchInfo(cause) {
     'regexString' : searchInfo.regexString,
     'currentSelection' : searchInfo.selectedIndex,
     'numResults' : searchInfo.length,
-    'cause' : cause
+    'cause' : cause,
+    'multiCount': searchInfo.multiCount,
   });
 }
 
@@ -59,6 +60,40 @@ function isTextNode(node) {
 function isExpandable(node) {
   return node && node.nodeType === ELEMENT_NODE_TYPE && node.childNodes && 
          !UNEXPANDABLE.test(node.tagName) && node.visible();
+}
+
+function countRegex(regex, maxResults) {
+  var regexes = regex.split("|").filter(a => a)
+  if (regexes.length <= 1) return;
+  var cache = {
+  }
+  var count = 0;
+  function countRecursive(node) {
+    if (count >= maxResults) {
+      return;
+    }
+    if (isTextNode(node)) {
+      var index = node.data.search(regex);
+      if (index >= 0 && node.data.length > 0) {
+        count++;
+        for (var i = 0; i < regexes.length; i++) {
+          if (node.data.search(regexes[i]) >= 0) {
+            cache[regexes[i]] = (cache[regexes[i]] || 0) + 1;
+          }
+        }
+        return 1;
+      }
+    } else if (isExpandable(node)) {
+      var children = node.childNodes;
+      for (var i = 0; i < children.length; ++i) {
+        var child = children[i];
+        i += countRecursive(child);
+      }
+    }
+    return 0;
+  }
+  countRecursive(document.getElementsByTagName('body')[0])
+  return cache;
 }
 
 /* Highlight all text that matches regex */
@@ -196,6 +231,9 @@ function search(regexString, configurationChanged) {
           regex = new RegExp(regexString, 'i');
         }
         highlight(regex, result.highlightColor, result.selectedColor, result.textColor, result.maxResults);
+        if (regexString.indexOf("|") >= 0) {
+          searchInfo.multiCount = countRegex(regexString, result.maxResults);
+        }
         selectFirstNode(result.selectedColor);
         returnSearchInfo('search');
       }

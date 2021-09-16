@@ -249,10 +249,20 @@ document.getElementById('copy-to-clipboard').addEventListener('click', function 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if ('returnSearchInfo' == request.message) {
     processingKey = false;
+    var multiCount = request.multiCount;
+    var countStr = "";
+    if (multiCount) {
+      for (var m in multiCount) {
+        countStr += (m + ":" + multiCount[m]) + " ";
+      }
+    }
     if (request.numResults > 0) {
       document.getElementById('numResults').textContent = String(request.currentSelection+1) + ' of ' + String(request.numResults);
     } else {
       document.getElementById('numResults').textContent = String(request.currentSelection) + ' of ' + String(request.numResults);
+    }
+    if (countStr) {
+      document.getElementById("word-count").textContent = countStr;
     }
     if (!sentInput) {
       document.getElementById('inputRegex').value = request.regexString;
@@ -341,7 +351,17 @@ function(tabs) {
 /* Focus onto input form */
 document.getElementById('inputRegex').focus();
 window.setTimeout( 
-  function(){document.getElementById('inputRegex').select();}, 0);
+  function(){
+      document.getElementById('inputRegex').select();
+      chrome.storage.local.get({
+        searchHistory: []
+      }, function (result) {
+        if (result.searchHistory && result.searchHistory.length > 0) {
+          document.getElementById('inputRegex').value = result.searchHistory[result.searchHistory.length - 1];
+          passInputToContentScript();
+        }
+      });
+    }, 0);
 //Thanks to http://stackoverflow.com/questions/480735#comment40578284_14573552
 
 var makeVisible = document.getElementById('history').style.display == 'none';
